@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const authRoutes = require("./routes/auth.routes");
+const { errorHandler } = require("./middleware/error.middleware");
 
 const app = express();
 
@@ -16,5 +17,7 @@ app.use("/auth", authRoutes);
 app.get("/health", (req, res) => {
   res.json({ ok: true });
 });
+
+app.use(errorHandler);
 
 module.exports = app;
