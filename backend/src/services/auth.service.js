@@ -3,6 +3,10 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const prisma = require("../lib/prisma");
 const { JWT_SECRET, JWT_EXPIRES_IN } = require("../config/jwt");
+const ConflictError = require("../errors/ConflictError");
+const UnauthorizedError = require("../errors/UnauthorizedError");
+const NotFoundError = require("../errors/NotFoundError");
+const ValidationError = require("../errors/ValidationError");
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -11,10 +15,10 @@ const registerSchema = z.object({
 
 async function register(body) {
   const result = registerSchema.safeParse(body);
-  if (!result.success) throw result.error;
+  if (!result.success) throw new ValidationError(result.error.issues[0].message);
 
   const existing = await prisma.user.findUnique({ where: { email: result.data.email } });
-  if (existing) throw new Error("Email already registered");
+  if (existing) throw new ConflictError("Email already registered");
 
   const passwordHash = await bcrypt.hash(result.data.password, 10);
 
@@ -54,13 +58,13 @@ const loginSchema = z.object({
 
 async function login(body) {
   const result = loginSchema.safeParse(body);
-  if (!result.success) throw result.error;
+  if (!result.success) throw new ValidationError(result.error.issues[0].message);
 
   const user = await prisma.user.findUnique({ where: { email: result.data.email } });
-  if (!user) throw new Error("Invalid email or password");
+  if (!user) throw new UnauthorizedError("Invalid email or password");
 
   const match = await bcrypt.compare(result.data.password, user.passwordHash);
-  if (!match) throw new Error("Invalid email or password");
+  if (!match) throw new UnauthorizedError("Invalid email or password");
 
   const token = jwt.sign(
     { userId: user.id, email: user.email },
@@ -83,7 +87,7 @@ async function login(body) {
 
 async function me(payload) {
   const user = await prisma.user.findUnique({ where: { id: payload.userId } });
-  if (!user) throw new Error("User not found");
+  if (!user) throw new NotFoundError("User not found");
 
   return {
     id: user.id,
