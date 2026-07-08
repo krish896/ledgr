@@ -1,11 +1,30 @@
 const { z } = require("zod");
 const prisma = require("../lib/prisma");
 const ValidationError = require("../errors/ValidationError");
+const NotFoundError = require("../errors/NotFoundError");
+const ConflictError = require("../errors/ConflictError");
 
 const createGroupSchema = z.object({
   name: z.string().trim().min(1).max(100),
   description: z.string().trim().max(500).optional(),
 });
+
+const updateGroupSchema = z.object({
+  name: z.string().trim().min(1).max(100).optional(),
+  description: z.string().trim().max(500).nullable().optional(),
+});
+
+const addMemberSchema = z.object({
+  email: z.string().email(),
+});
+
+async function ensureActiveMember(groupId, userId) {
+  const membership = await prisma.groupMember.findFirst({
+    where: { groupId, userId, removedAt: null },
+  });
+  if (!membership) throw new NotFoundError("Group not found");
+  return membership;
+}
 
 async function createGroup(body, actor) {
   const result = createGroupSchema.safeParse(body);
@@ -42,19 +61,97 @@ async function createGroup(body, actor) {
 }
 
 async function getGroups(actor) {
-  return { message: "Get Groups endpoint working" };
+  const memberships = await prisma.groupMember.findMany({
+    where: { userId: actor.userId, removedAt: null },
+    include: { group: true },
+  });
+
+  return {
+    groups: memberships.map(({ group }) => ({
+      id: group.id,
+      name: group.name,
+      description: group.description,
+      createdAt: group.createdAt,
+      updatedAt: group.updatedAt,
+    })),
+  };
 }
 
 async function getGroupById(groupId, actor) {
-  return { message: "Get Group By Id endpoint working" };
+  await ensureActiveMember(groupId, actor.userId);
+
+  const group = await prisma.group.findUnique({
+    where: { id: groupId },
+    include: {
+      members: {
+        where: { removedAt: null },
+        include: {
+          user: { select: { id: true, email: true, name: true } },
+        },
+      },
+    },
+  });
+
+  return {
+    group: {
+      id: group.id,
+      name: group.name,
+      description: group.description,
+      createdAt: group.createdAt,
+      updatedAt: group.updatedAt,
+      members: group.members.map(({ user }) => user),
+    },
+  };
 }
 
 async function updateGroup(groupId, body, actor) {
-  return { message: "Update Group endpoint working" };
+  const result = updateGroupSchema.safeParse(body);
+  if (!result.success) throw new ValidationError(result.error.issues[0].message);
+  if (Object.keys(result.data).length === 0) throw new ValidationError("At least one field must be provided");
+
+  await ensureActiveMember(groupId, actor.userId);
+
+  const group = await prisma.group.update({
+    where: { id: groupId },
+    data: result.data,
+  });
+
+  return {
+    group: {
+      id: group.id,
+      name: group.name,
+      description: group.description,
+      createdAt: group.createdAt,
+      updatedAt: group.updatedAt,
+    },
+  };
 }
 
 async function addMember(groupId, body, actor) {
-  return { message: "Add Member endpoint working" };
+  const result = addMemberSchema.safeParse(body);
+  if (!result.success) throw new ValidationError(result.error.issues[0].message);
+
+  await ensureActiveMember(groupId, actor.userId);
+
+  const userToAdd = await prisma.user.findUnique({ where: { email: result.data.email } });
+  if (!userToAdd) throw new NotFoundError("User not found");
+
+  const existing = await prisma.groupMember.findFirst({
+    where: { groupId, userId: userToAdd.id, removedAt: null },
+  });
+  if (existing) throw new ConflictError("User is already a member");
+
+  await prisma.groupMember.create({
+    data: { groupId, userId: userToAdd.id },
+  });
+
+  return {
+    member: {
+      id: userToAdd.id,
+      email: userToAdd.email,
+      name: userToAdd.name,
+    },
+  };
 }
 
 module.exports = { createGroup, getGroups, getGroupById, updateGroup, addMember };
