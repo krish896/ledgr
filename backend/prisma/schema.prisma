@@ -110,6 +110,7 @@ model ExpenseSplit {
 
   @@index([expenseId])
   @@index([userId])
+  @@unique([expenseId, userId])
 }
 
 model Settlement {
