@@ -25,4 +25,9 @@ async function addMember(req, res) {
   res.status(201).json(result);
 }
 
-module.exports = { createGroup, getGroups, getGroupById, updateGroup, addMember };
+async function getBalances(req, res) {
+  const result = await groupService.getBalances(req.params.groupId, req.user);
+  res.status(200).json(result);
+}
+
+module.exports = { createGroup, getGroups, getGroupById, updateGroup, addMember, getBalances };

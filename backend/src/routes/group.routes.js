@@ -5,6 +5,7 @@ const {
   getGroupById,
   updateGroup,
   addMember,
+  getBalances,
 } = require("../controllers/group.controller");
 
 const router = express.Router();
@@ -12,6 +13,8 @@ const router = express.Router();
 router.post("/", createGroup);
 router.get("/", getGroups);
 router.get("/:groupId", getGroupById);
+router.get("/:groupId/balances", getBalances);
+
 router.patch("/:groupId", updateGroup);
 router.post("/:groupId/members", addMember);
 

@@ -3,6 +3,7 @@ const prisma = require("../lib/prisma");
 const ValidationError = require("../errors/ValidationError");
 const NotFoundError = require("../errors/NotFoundError");
 const ConflictError = require("../errors/ConflictError");
+const { computeBalances } = require("../lib/balanceEngine");
 
 const createGroupSchema = z.object({
   name: z.string().trim().min(1).max(100),
@@ -154,4 +155,30 @@ async function addMember(groupId, body, actor) {
   };
 }
 
-module.exports = { createGroup, getGroups, getGroupById, updateGroup, addMember };
+async function getBalances(groupId, actor) {
+  await ensureActiveMember(groupId, actor.userId);
+
+  const expenses = await prisma.expense.findMany({
+    where: { groupId, deletedAt: null },
+    include: {
+      splits: {
+        select: { userId: true, amount: true },
+      },
+    },
+  });
+
+  const settlements = await prisma.settlement.findMany({
+    where: { groupId },
+    select: { fromUserId: true, toUserId: true, amount: true },
+  });
+
+  const balances = computeBalances({ expenses, settlements });
+
+  const filteredBalances = balances.filter(
+    (b) => b.fromUserId === actor.userId || b.toUserId === actor.userId
+  );
+
+  return { balances: filteredBalances };
+}
+
+module.exports = { createGroup, getGroups, getGroupById, updateGroup, addMember, getBalances };
