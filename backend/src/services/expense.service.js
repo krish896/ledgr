@@ -2,6 +2,7 @@ const { z } = require("zod");
 const ValidationError = require("../errors/ValidationError");
 const prisma = require("../lib/prisma");
 const NotFoundError = require("../errors/NotFoundError");
+const { ensureActiveMember } = require("../lib/groupMembership");
 
 const equalExpenseSchema = z.object({
   groupId:      z.string(),
@@ -32,14 +33,6 @@ const createExpenseSchema = z.discriminatedUnion("splitType", [
   equalExpenseSchema,
   exactExpenseSchema,
 ]);
-
-async function ensureActiveMember(groupId, userId) {
-  const membership = await prisma.groupMember.findFirst({
-    where: { groupId, userId, removedAt: null },
-  });
-  if (!membership) throw new NotFoundError("Group not found");
-  return membership;
-}
 
 async function createExpense(body, actor) {
   const result = createExpenseSchema.safeParse(body);

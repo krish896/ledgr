@@ -1,8 +1,8 @@
 const { z } = require("zod");
 const ValidationError = require("../errors/ValidationError");
 const prisma = require("../lib/prisma");
-const NotFoundError = require("../errors/NotFoundError");
-const { computeBalances } = require("../lib/balanceEngine");
+const { ensureActiveMember } = require("../lib/groupMembership");
+const { computeGroupBalances } = require("../lib/computeGroupBalances");
 
 const createSettlementSchema = z.object({
   groupId: z.string(),
@@ -10,14 +10,6 @@ const createSettlementSchema = z.object({
   amount: z.number().int().positive(),
   note: z.string().trim().max(500).optional(),
 });
-
-async function ensureActiveMember(groupId, userId) {
-  const membership = await prisma.groupMember.findFirst({
-    where: { groupId, userId, removedAt: null },
-  });
-  if (!membership) throw new NotFoundError("Group not found");
-  return membership;
-}
 
 async function createSettlement(body, actor) {
   const result = createSettlementSchema.safeParse(body);
@@ -31,21 +23,7 @@ async function createSettlement(body, actor) {
   if (actor.userId === toUserId)
     throw new ValidationError("You cannot settle with yourself");
 
-  const expenses = await prisma.expense.findMany({
-    where: { groupId, deletedAt: null },
-    include: {
-      splits: {
-        select: { userId: true, amount: true },
-      },
-    },
-  });
-
-  const settlements = await prisma.settlement.findMany({
-    where: { groupId },
-    select: { fromUserId: true, toUserId: true, amount: true },
-  });
-
-  const balances = computeBalances({ expenses, settlements });
+  const balances = await computeGroupBalances(groupId);
 
   const balance = balances.find(
     (b) => b.fromUserId === actor.userId && b.toUserId === toUserId
