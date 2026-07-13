@@ -3,6 +3,7 @@ const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const authRoutes = require("./routes/auth.routes");
 const groupRoutes = require("./routes/group.routes");
+const expenseRoutes = require("./routes/expense.routes");
 const { authenticate } = require("./middleware/auth.middleware");
 const { errorHandler } = require("./middleware/error.middleware");
 
@@ -15,6 +16,7 @@ app.use(cookieParser());
 
 app.use("/auth", authRoutes);
 app.use("/groups", authenticate, groupRoutes);
+app.use("/expenses", authenticate, expenseRoutes);
 
 // Health check route
 app.get("/health", (req, res) => {
