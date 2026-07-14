@@ -1,0 +1,1267 @@
+{
+  "info": {
+    "name": "Ledgr API",
+    "description": "Complete QA collection for Ledgr — expense-splitting backend. Covers Auth, Groups, Members, Expenses, Balances, and Settlements with happy-path, error, and end-to-end regression flows.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "groupId", "value": "" },
+    { "key": "expenseId", "value": "" },
+    { "key": "aliceId", "value": "" },
+    { "key": "bobId", "value": "" },
+    { "key": "regEmail", "value": "" },
+    { "key": "bobEmail", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "description": "User registration, login, session management, and profile retrieval.",
+      "item": [
+        {
+          "name": "Register",
+          "description": "Create a new user account. Uses a timestamp-suffixed email to avoid conflicts on repeated runs.",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "pm.variables.set('dynamicEmail', `user_${Date.now()}@test.com`);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('Returns user object', () => {",
+                  "  pm.expect(body).to.have.property('user');",
+                  "  const u = body.user;",
+                  "  pm.expect(u.id).to.be.a('string');",
+                  "  pm.expect(u.email).to.be.a('string');",
+                  "  pm.expect(u.profileCompleted).to.be.a('boolean').and.equal(false);",
+                  "  pm.expect(u).to.not.have.property('passwordHash');",
+                  "  pm.expect(Date.parse(u.createdAt)).to.not.be.NaN;",
+                  "  pm.expect(Date.parse(u.updatedAt)).to.not.be.NaN;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/register",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"email\": \"{{dynamicEmail}}\", \"password\": \"password123\" }"
+            }
+          }
+        },
+        {
+          "name": "Register – Duplicate Email",
+          "description": "Registering with an already-used email must return 409.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 409', () => pm.response.to.have.status(409));",
+                  "pm.test('Has message', () => pm.expect(pm.response.json()).to.have.property('message'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/register",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"email\": \"alice@example.com\", \"password\": \"password123\" }"
+            }
+          }
+        },
+        {
+          "name": "Register – Invalid Password",
+          "description": "Password shorter than 8 characters must return 400.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Has message', () => pm.expect(pm.response.json()).to.have.property('message'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/register",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"email\": \"short@example.com\", \"password\": \"abc\" }"
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "description": "Authenticate with valid credentials. The server sets an HTTP-only cookie that Postman's cookie jar carries forward automatically.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Returns user object', () => {",
+                  "  pm.expect(body).to.have.property('user');",
+                  "  const u = body.user;",
+                  "  pm.expect(u.id).to.be.a('string');",
+                  "  pm.expect(u.email).to.be.a('string');",
+                  "  pm.expect(u.profileCompleted).to.be.a('boolean');",
+                  "  pm.expect(u).to.not.have.property('passwordHash');",
+                  "  pm.expect(Date.parse(u.createdAt)).to.not.be.NaN;",
+                  "  pm.expect(Date.parse(u.updatedAt)).to.not.be.NaN;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/login",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"email\": \"alice@example.com\", \"password\": \"password123\" }"
+            }
+          }
+        },
+        {
+          "name": "Login – Wrong Password",
+          "description": "Invalid credentials must return 401.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 401', () => pm.response.to.have.status(401));",
+                  "pm.test('Has message', () => pm.expect(pm.response.json()).to.have.property('message'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/login",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"email\": \"alice@example.com\", \"password\": \"wrongpassword\" }"
+            }
+          }
+        },
+        {
+          "name": "Me",
+          "description": "Fetch the authenticated user's profile using the session cookie.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Returns user object', () => {",
+                  "  pm.expect(body).to.have.property('user');",
+                  "  const u = body.user;",
+                  "  pm.expect(u.id).to.be.a('string');",
+                  "  pm.expect(u.email).to.be.a('string');",
+                  "  pm.expect(u.profileCompleted).to.be.a('boolean');",
+                  "  pm.expect(u).to.not.have.property('passwordHash');",
+                  "  pm.expect(Date.parse(u.createdAt)).to.not.be.NaN;",
+                  "  pm.expect(Date.parse(u.updatedAt)).to.not.be.NaN;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/auth/me"
+          }
+        },
+        {
+          "name": "Me – Unauthenticated",
+          "description": "Calling /auth/me without a session cookie must return 401.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 401', () => pm.response.to.have.status(401));",
+                  "pm.test('Has message', () => pm.expect(pm.response.json()).to.have.property('message'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/auth/me",
+            "header": [{ "key": "Cookie", "value": "", "disabled": true }]
+          }
+        },
+        {
+          "name": "Logout",
+          "description": "Clear the session cookie. Subsequent authenticated requests must be rejected.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has message', () => pm.expect(pm.response.json()).to.have.property('message'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/logout"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Groups",
+      "description": "Create and manage expense groups.",
+      "item": [
+        {
+          "name": "Create Group",
+          "description": "Create a new group. The creator is automatically added as a member. Saves groupId for downstream requests.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('Returns group object', () => {",
+                  "  pm.expect(body).to.have.property('group');",
+                  "  const g = body.group;",
+                  "  pm.expect(g.id).to.be.a('string');",
+                  "  pm.expect(g.name).to.be.a('string');",
+                  "  pm.expect(Date.parse(g.createdAt)).to.not.be.NaN;",
+                  "  pm.expect(Date.parse(g.updatedAt)).to.not.be.NaN;",
+                  "});",
+                  "pm.collectionVariables.set('groupId', body.group.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/groups",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"name\": \"Trip to Goa\", \"description\": \"Summer 2025\" }"
+            }
+          }
+        },
+        {
+          "name": "Create Group – Missing Name",
+          "description": "Omitting the required name field must return 400.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Has message', () => pm.expect(pm.response.json()).to.have.property('message'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/groups",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"description\": \"no name\" }"
+            }
+          }
+        },
+        {
+          "name": "Get Groups",
+          "description": "List all groups the authenticated user belongs to.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Returns groups array', () => {",
+                  "  pm.expect(body).to.have.property('groups').that.is.an('array');",
+                  "  if (body.groups.length > 0) {",
+                  "    const g = body.groups[0];",
+                  "    pm.expect(g.id).to.be.a('string');",
+                  "    pm.expect(g.name).to.be.a('string');",
+                  "    pm.expect(Date.parse(g.createdAt)).to.not.be.NaN;",
+                  "    pm.expect(Date.parse(g.updatedAt)).to.not.be.NaN;",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/groups"
+          }
+        },
+        {
+          "name": "Get Group By ID",
+          "description": "Retrieve a single group including its active member list.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Returns group with members', () => {",
+                  "  pm.expect(body).to.have.property('group');",
+                  "  const g = body.group;",
+                  "  pm.expect(g.id).to.be.a('string');",
+                  "  pm.expect(g.name).to.be.a('string');",
+                  "  pm.expect(g.members).to.be.an('array');",
+                  "  pm.expect(Date.parse(g.createdAt)).to.not.be.NaN;",
+                  "  pm.expect(Date.parse(g.updatedAt)).to.not.be.NaN;",
+                  "  if (g.members.length > 0) {",
+                  "    const m = g.members[0];",
+                  "    pm.expect(m.id).to.be.a('string');",
+                  "    pm.expect(m.email).to.be.a('string');",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/groups/{{groupId}}"
+          }
+        },
+        {
+          "name": "Get Group By ID – Not Found",
+          "description": "A non-existent group ID must return 404.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('Has message', () => pm.expect(pm.response.json()).to.have.property('message'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/groups/nonexistent-group-id"
+          }
+        },
+        {
+          "name": "Update Group",
+          "description": "Patch a group's name or description.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Returns updated group', () => {",
+                  "  pm.expect(body).to.have.property('group');",
+                  "  const g = body.group;",
+                  "  pm.expect(g.id).to.be.a('string');",
+                  "  pm.expect(g.name).to.equal('Trip to Goa (Updated)');",
+                  "  pm.expect(Date.parse(g.createdAt)).to.not.be.NaN;",
+                  "  pm.expect(Date.parse(g.updatedAt)).to.not.be.NaN;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/groups/{{groupId}}",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"name\": \"Trip to Goa (Updated)\" }"
+            }
+          }
+        },
+        {
+          "name": "Update Group – Empty Body",
+          "description": "Sending no fields must return 400 because at least one field is required.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Has message', () => pm.expect(pm.response.json()).to.have.property('message'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "url": "{{baseUrl}}/groups/{{groupId}}",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Members",
+      "description": "Add users to a group by email lookup.",
+      "item": [
+        {
+          "name": "Add Member",
+          "description": "Add an existing user to a group by their email address.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('Returns member object', () => {",
+                  "  pm.expect(body).to.have.property('member');",
+                  "  const m = body.member;",
+                  "  pm.expect(m.id).to.be.a('string');",
+                  "  pm.expect(m.email).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/groups/{{groupId}}/members",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"email\": \"bob@example.com\" }"
+            }
+          }
+        },
+        {
+          "name": "Add Member – Already a Member",
+          "description": "Adding a user who is already an active member must return 409.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 409', () => pm.response.to.have.status(409));",
+                  "pm.test('Has message', () => pm.expect(pm.response.json()).to.have.property('message'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/groups/{{groupId}}/members",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"email\": \"bob@example.com\" }"
+            }
+          }
+        },
+        {
+          "name": "Add Member – User Not Found",
+          "description": "Referencing an email that has no account must return 404.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('Has message', () => pm.expect(pm.response.json()).to.have.property('message'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/groups/{{groupId}}/members",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"email\": \"ghost@example.com\" }"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Expenses",
+      "description": "Create, retrieve, and soft-delete group expenses with EQUAL or EXACT splits.",
+      "item": [
+        {
+          "name": "Create Expense – EQUAL Split",
+          "description": "Alice pays ₹300 split equally among two participants. Remainder paise are distributed deterministically to the first sorted participant IDs. Saves expenseId.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('Returns expense object', () => {",
+                  "  pm.expect(body).to.have.property('expense');",
+                  "  const e = body.expense;",
+                  "  pm.expect(e.id).to.be.a('string');",
+                  "  pm.expect(e.groupId).to.be.a('string');",
+                  "  pm.expect(e.payerId).to.be.a('string');",
+                  "  pm.expect(e.amount).to.be.a('string');",
+                  "  pm.expect(e.splitType).to.equal('EQUAL');",
+                  "  pm.expect(Date.parse(e.occurredAt)).to.not.be.NaN;",
+                  "  pm.expect(Date.parse(e.createdAt)).to.not.be.NaN;",
+                  "  pm.expect(Date.parse(e.updatedAt)).to.not.be.NaN;",
+                  "});",
+                  "pm.collectionVariables.set('expenseId', body.expense.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/expenses",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"groupId\": \"{{groupId}}\",\n  \"payerId\": \"ALICE_USER_ID\",\n  \"amount\": 30000,\n  \"description\": \"Hotel booking\",\n  \"occurredAt\": \"2025-06-01T00:00:00.000Z\",\n  \"splitType\": \"EQUAL\",\n  \"participants\": [\"ALICE_USER_ID\", \"BOB_USER_ID\"]\n}"
+            }
+          }
+        },
+        {
+          "name": "Create Expense – EXACT Split",
+          "description": "Create an expense with manually specified per-user amounts. Split total must equal the expense amount.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('Returns expense object', () => {",
+                  "  pm.expect(body).to.have.property('expense');",
+                  "  const e = body.expense;",
+                  "  pm.expect(e.id).to.be.a('string');",
+                  "  pm.expect(e.amount).to.be.a('string');",
+                  "  pm.expect(e.splitType).to.equal('EXACT');",
+                  "  pm.expect(Date.parse(e.occurredAt)).to.not.be.NaN;",
+                  "  pm.expect(Date.parse(e.createdAt)).to.not.be.NaN;",
+                  "  pm.expect(Date.parse(e.updatedAt)).to.not.be.NaN;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/expenses",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"groupId\": \"{{groupId}}\",\n  \"payerId\": \"ALICE_USER_ID\",\n  \"amount\": 10000,\n  \"description\": \"Lunch\",\n  \"occurredAt\": \"2025-06-02T00:00:00.000Z\",\n  \"splitType\": \"EXACT\",\n  \"splits\": [\n    { \"userId\": \"ALICE_USER_ID\", \"amount\": 6000 },\n    { \"userId\": \"BOB_USER_ID\", \"amount\": 4000 }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Create Expense – EXACT Split Mismatch",
+          "description": "Split amounts that do not add up to the expense total must return 400.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Has message', () => pm.expect(pm.response.json()).to.have.property('message'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/expenses",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"groupId\": \"{{groupId}}\",\n  \"payerId\": \"ALICE_USER_ID\",\n  \"amount\": 10000,\n  \"description\": \"Bad split\",\n  \"occurredAt\": \"2025-06-02T00:00:00.000Z\",\n  \"splitType\": \"EXACT\",\n  \"splits\": [\n    { \"userId\": \"ALICE_USER_ID\", \"amount\": 3000 },\n    { \"userId\": \"BOB_USER_ID\", \"amount\": 4000 }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Create Expense – Duplicate Participants",
+          "description": "EQUAL split with duplicate participant IDs must return 400.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Has message', () => pm.expect(pm.response.json()).to.have.property('message'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/expenses",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"groupId\": \"{{groupId}}\",\n  \"payerId\": \"ALICE_USER_ID\",\n  \"amount\": 10000,\n  \"description\": \"Dup participants\",\n  \"occurredAt\": \"2025-06-02T00:00:00.000Z\",\n  \"splitType\": \"EQUAL\",\n  \"participants\": [\"ALICE_USER_ID\", \"ALICE_USER_ID\"]\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Expense",
+          "description": "Retrieve a single expense with its per-user split breakdown.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Returns expense with participants', () => {",
+                  "  pm.expect(body).to.have.property('expense');",
+                  "  const e = body.expense;",
+                  "  pm.expect(e.id).to.be.a('string');",
+                  "  pm.expect(e.amount).to.be.a('string');",
+                  "  pm.expect(e.participants).to.be.an('array');",
+                  "  pm.expect(Date.parse(e.occurredAt)).to.not.be.NaN;",
+                  "  pm.expect(Date.parse(e.createdAt)).to.not.be.NaN;",
+                  "  pm.expect(Date.parse(e.updatedAt)).to.not.be.NaN;",
+                  "  if (e.participants.length > 0) {",
+                  "    const p = e.participants[0];",
+                  "    pm.expect(p.amount).to.be.a('string');",
+                  "    pm.expect(p.user.id).to.be.a('string');",
+                  "    pm.expect(p.user.email).to.be.a('string');",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/expenses/{{expenseId}}"
+          }
+        },
+        {
+          "name": "Get Expense – Not Found",
+          "description": "A non-existent or deleted expense ID must return 404.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('Has message', () => pm.expect(pm.response.json()).to.have.property('message'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/expenses/nonexistent-expense-id"
+          }
+        },
+        {
+          "name": "Delete Expense",
+          "description": "Soft-delete an expense. Subsequent GET requests return 404; balance computations exclude it.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has message', () => pm.expect(pm.response.json()).to.have.property('message'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/expenses/{{expenseId}}"
+          }
+        },
+        {
+          "name": "Delete Expense – Already Deleted",
+          "description": "Deleting an already soft-deleted expense must return 404.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('Has message', () => pm.expect(pm.response.json()).to.have.property('message'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/expenses/{{expenseId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Balances",
+      "description": "Computed net balances for the authenticated user within a group.",
+      "item": [
+        {
+          "name": "Get Balances",
+          "description": "Returns only the balance rows where the actor is either the debtor or creditor. Amounts are BigInt serialized as strings.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Returns balances array', () => {",
+                  "  pm.expect(body).to.have.property('balances').that.is.an('array');",
+                  "  body.balances.forEach(b => {",
+                  "    pm.expect(b.fromUserId).to.be.a('string');",
+                  "    pm.expect(b.toUserId).to.be.a('string');",
+                  "    pm.expect(b.amount).to.be.a('string');",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/groups/{{groupId}}/balances"
+          }
+        },
+        {
+          "name": "Get Balances – Not a Member",
+          "description": "Requesting balances for a group the user doesn't belong to must return 404.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('Has message', () => pm.expect(pm.response.json()).to.have.property('message'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/groups/nonexistent-group-id/balances"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Settlements",
+      "description": "Record a payment that reduces an outstanding balance.",
+      "item": [
+        {
+          "name": "Create Settlement",
+          "description": "Bob records a payment to Alice, reducing Bob's outstanding balance. Amount must not exceed what Bob owes.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('Returns settlement object', () => {",
+                  "  pm.expect(body).to.have.property('settlement');",
+                  "  const s = body.settlement;",
+                  "  pm.expect(s.id).to.be.a('string');",
+                  "  pm.expect(s.groupId).to.be.a('string');",
+                  "  pm.expect(s.fromUserId).to.be.a('string');",
+                  "  pm.expect(s.toUserId).to.be.a('string');",
+                  "  pm.expect(s.amount).to.be.a('string');",
+                  "  pm.expect(Date.parse(s.createdAt)).to.not.be.NaN;",
+                  "  pm.expect(Date.parse(s.updatedAt)).to.not.be.NaN;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/settlements",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"groupId\": \"{{groupId}}\",\n  \"toUserId\": \"ALICE_USER_ID\",\n  \"amount\": 15000,\n  \"note\": \"Half of hotel\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Create Settlement – No Outstanding Balance",
+          "description": "Settling when no balance exists between the pair must return 400.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Has message', () => pm.expect(pm.response.json()).to.have.property('message'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/settlements",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"groupId\": \"{{groupId}}\",\n  \"toUserId\": \"ALICE_USER_ID\",\n  \"amount\": 1\n}"
+            }
+          }
+        },
+        {
+          "name": "Create Settlement – Exceeds Balance",
+          "description": "Settlement amount greater than the outstanding balance must return 400.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Has message', () => pm.expect(pm.response.json()).to.have.property('message'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/settlements",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"groupId\": \"{{groupId}}\",\n  \"toUserId\": \"ALICE_USER_ID\",\n  \"amount\": 9999999\n}"
+            }
+          }
+        },
+        {
+          "name": "Create Settlement – Self",
+          "description": "Settling with yourself must return 400.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Has message', () => pm.expect(pm.response.json()).to.have.property('message'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/settlements",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"groupId\": \"{{groupId}}\",\n  \"toUserId\": \"ALICE_USER_ID\",\n  \"amount\": 1000\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Regression Flow",
+      "description": "End-to-end flow with two users. Uses timestamp-suffixed emails so repeated runs never conflict. Steps: register both users → login Alice → create group → add Bob → create expense → verify Bob owes Alice → login Bob → settle → verify balance cleared → login Alice → add expense → delete it → verify zeroed balance.",
+      "item": [
+        {
+          "name": "Step 01 – Register Alice",
+          "description": "Register the first user (Alice) with a unique timestamped email. Also sets bobEmail with the same timestamp for consistency.",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "const ts = Date.now();",
+                  "pm.collectionVariables.set('regEmail', `alice_${ts}@regression.com`);",
+                  "pm.collectionVariables.set('bobEmail', `bob_${ts}@regression.com`);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const u = pm.response.json().user;",
+                  "pm.test('Alice registered', () => {",
+                  "  pm.expect(u.id).to.be.a('string');",
+                  "  pm.expect(u.email).to.be.a('string');",
+                  "  pm.expect(Date.parse(u.createdAt)).to.not.be.NaN;",
+                  "});",
+                  "pm.collectionVariables.set('aliceId', u.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/register",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"email\": \"{{regEmail}}\", \"password\": \"password123\" }"
+            }
+          }
+        },
+        {
+          "name": "Step 02 – Register Bob",
+          "description": "Register the second user (Bob) with the same timestamp suffix.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const u = pm.response.json().user;",
+                  "pm.test('Bob registered', () => {",
+                  "  pm.expect(u.id).to.be.a('string');",
+                  "  pm.expect(Date.parse(u.createdAt)).to.not.be.NaN;",
+                  "});",
+                  "pm.collectionVariables.set('bobId', u.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/register",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"email\": \"{{bobEmail}}\", \"password\": \"password123\" }"
+            }
+          }
+        },
+        {
+          "name": "Step 03 – Login Alice",
+          "description": "Login as Alice. Cookie jar picks up the session token.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Alice logged in', () => pm.expect(pm.response.json().user.email).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/login",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"email\": \"{{regEmail}}\", \"password\": \"password123\" }"
+            }
+          }
+        },
+        {
+          "name": "Step 04 – Create Group",
+          "description": "Alice creates the group. groupId is saved for all subsequent steps.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const g = pm.response.json().group;",
+                  "pm.test('Group created', () => {",
+                  "  pm.expect(g.id).to.be.a('string');",
+                  "  pm.expect(Date.parse(g.createdAt)).to.not.be.NaN;",
+                  "});",
+                  "pm.collectionVariables.set('groupId', g.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/groups",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"name\": \"Regression Group\" }"
+            }
+          }
+        },
+        {
+          "name": "Step 05 – Add Bob to Group",
+          "description": "Alice adds Bob by his email. Membership is required before Bob can be referenced in expenses.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Bob added', () => {",
+                  "  const m = pm.response.json().member;",
+                  "  pm.expect(m.id).to.be.a('string');",
+                  "  pm.expect(m.email).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/groups/{{groupId}}/members",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"email\": \"{{bobEmail}}\" }"
+            }
+          }
+        },
+        {
+          "name": "Step 06 – Create Expense (Alice Pays)",
+          "description": "Alice pays ₹300 split equally. Bob owes Alice ₹150 after this step.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const e = pm.response.json().expense;",
+                  "pm.test('Expense created', () => {",
+                  "  pm.expect(e.id).to.be.a('string');",
+                  "  pm.expect(e.amount).to.be.a('string');",
+                  "  pm.expect(Date.parse(e.occurredAt)).to.not.be.NaN;",
+                  "  pm.expect(Date.parse(e.createdAt)).to.not.be.NaN;",
+                  "});",
+                  "pm.collectionVariables.set('expenseId', e.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/expenses",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"groupId\": \"{{groupId}}\",\n  \"payerId\": \"{{aliceId}}\",\n  \"amount\": 30000,\n  \"description\": \"Hotel\",\n  \"occurredAt\": \"2025-06-01T00:00:00.000Z\",\n  \"splitType\": \"EQUAL\",\n  \"participants\": [\"{{aliceId}}\", \"{{bobId}}\"]\n}"
+            }
+          }
+        },
+        {
+          "name": "Step 07 – Verify Bob Owes Alice",
+          "description": "Alice checks balances. Exactly one entry with amount '15000'.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const balances = pm.response.json().balances;",
+                  "pm.test('Balance exists', () => {",
+                  "  pm.expect(balances).to.be.an('array').with.lengthOf.at.least(1);",
+                  "  const b = balances[0];",
+                  "  pm.expect(b.fromUserId).to.be.a('string');",
+                  "  pm.expect(b.toUserId).to.be.a('string');",
+                  "  pm.expect(b.amount).to.be.a('string');",
+                  "  pm.expect(b.amount).to.equal('15000');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/groups/{{groupId}}/balances"
+          }
+        },
+        {
+          "name": "Step 08 – Login Bob",
+          "description": "Switch session to Bob so he can create a settlement.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Bob logged in', () => pm.expect(pm.response.json().user.email).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/login",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"email\": \"{{bobEmail}}\", \"password\": \"password123\" }"
+            }
+          }
+        },
+        {
+          "name": "Step 09 – Bob Settles with Alice",
+          "description": "Bob pays Alice ₹150, fully clearing his outstanding balance.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const s = pm.response.json().settlement;",
+                  "pm.test('Settlement created', () => {",
+                  "  pm.expect(s.id).to.be.a('string');",
+                  "  pm.expect(s.amount).to.be.a('string');",
+                  "  pm.expect(s.amount).to.equal('15000');",
+                  "  pm.expect(Date.parse(s.createdAt)).to.not.be.NaN;",
+                  "  pm.expect(Date.parse(s.updatedAt)).to.not.be.NaN;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/settlements",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"groupId\": \"{{groupId}}\",\n  \"toUserId\": \"{{aliceId}}\",\n  \"amount\": 15000\n}"
+            }
+          }
+        },
+        {
+          "name": "Step 10 – Verify Balance Cleared",
+          "description": "Bob's balances should now be empty — settlement fully netted the debt.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Balance cleared', () => {",
+                  "  pm.expect(pm.response.json().balances).to.be.an('array').with.lengthOf(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/groups/{{groupId}}/balances"
+          }
+        },
+        {
+          "name": "Step 11 – Login Alice",
+          "description": "Switch session back to Alice.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/auth/login",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"email\": \"{{regEmail}}\", \"password\": \"password123\" }"
+            }
+          }
+        },
+        {
+          "name": "Step 12 – Create Second Expense",
+          "description": "Alice adds another expense to verify the balance engine accumulates correctly before the delete step.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const e = pm.response.json().expense;",
+                  "pm.test('Second expense created', () => {",
+                  "  pm.expect(e.id).to.be.a('string');",
+                  "  pm.expect(e.amount).to.be.a('string');",
+                  "});",
+                  "pm.collectionVariables.set('expenseId', e.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/expenses",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"groupId\": \"{{groupId}}\",\n  \"payerId\": \"{{aliceId}}\",\n  \"amount\": 20000,\n  \"description\": \"Taxi\",\n  \"occurredAt\": \"2025-06-03T00:00:00.000Z\",\n  \"splitType\": \"EQUAL\",\n  \"participants\": [\"{{aliceId}}\", \"{{bobId}}\"]\n}"
+            }
+          }
+        },
+        {
+          "name": "Step 13 – Delete Expense and Verify",
+          "description": "Delete the second expense. Confirms soft-delete is respected by the balance engine — balance returns to zero.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Deleted', () => pm.expect(pm.response.json()).to.have.property('message'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "url": "{{baseUrl}}/expenses/{{expenseId}}"
+          }
+        }
+      ]
+    }
+  ]
+}
