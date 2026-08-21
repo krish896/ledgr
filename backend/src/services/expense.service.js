@@ -3,6 +3,7 @@ const ValidationError = require("../errors/ValidationError");
 const prisma = require("../lib/prisma");
 const NotFoundError = require("../errors/NotFoundError");
 const { ensureActiveMember } = require("../lib/groupMembership");
+const { writeAuditLog } = require("../lib/auditLog");
 
 const equalExpenseSchema = z.object({
   groupId:      z.string(),
@@ -98,6 +99,27 @@ async function createExpense(body, actor) {
       })),
     });
 
+    await writeAuditLog(tx, {
+      actorId:    actor.userId,
+      groupId:    expense.groupId,
+      entityType: "Expense",
+      entityId:   expense.id,
+      action:     "CREATE",
+      before:     null,
+      after: {
+        id:          expense.id,
+        groupId:     expense.groupId,
+        payerId:     expense.payerId,
+        amount:      expense.amount,
+        description: expense.description,
+        splitType:   expense.splitType,
+        occurredAt:  expense.occurredAt,
+        createdAt:   expense.createdAt,
+        updatedAt:   expense.updatedAt,
+        splits:      normalizedSplits.map((s) => ({ userId: s.userId, amount: BigInt(s.amount) })),
+      },
+    });
+
     return expense;
   });
 
@@ -158,9 +180,43 @@ async function deleteExpense(expenseId, actor) {
 
   await ensureActiveMember(expense.groupId, actor.userId);
 
-  await prisma.expense.update({
-    where: { id: expenseId },
-    data: { deletedAt: new Date() },
+  await prisma.$transaction(async (tx) => {
+    const deleted = await tx.expense.update({
+      where: { id: expenseId },
+      data: { deletedAt: new Date() },
+    });
+
+    await writeAuditLog(tx, {
+      actorId:    actor.userId,
+      groupId:    expense.groupId,
+      entityType: "Expense",
+      entityId:   expense.id,
+      action:     "UPDATE",
+      before: {
+        id:          expense.id,
+        groupId:     expense.groupId,
+        payerId:     expense.payerId,
+        amount:      expense.amount,
+        description: expense.description,
+        splitType:   expense.splitType,
+        occurredAt:  expense.occurredAt,
+        deletedAt:   expense.deletedAt,
+        createdAt:   expense.createdAt,
+        updatedAt:   expense.updatedAt,
+      },
+      after: {
+        id:          deleted.id,
+        groupId:     deleted.groupId,
+        payerId:     deleted.payerId,
+        amount:      deleted.amount,
+        description: deleted.description,
+        splitType:   deleted.splitType,
+        occurredAt:  deleted.occurredAt,
+        deletedAt:   deleted.deletedAt,
+        createdAt:   deleted.createdAt,
+        updatedAt:   deleted.updatedAt,
+      },
+    });
   });
 
   return { message: "Expense deleted successfully" };

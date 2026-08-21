@@ -137,6 +137,7 @@ model AuditLog {
   entityType String
   entityId   String
   actorId    String
+  groupId    String?
   action     AuditAction
   before     Json?
   after      Json?
@@ -146,4 +147,5 @@ model AuditLog {
 
   @@index([entityType, entityId])
   @@index([actorId])
+  @@index([groupId, createdAt])
 }

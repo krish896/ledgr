@@ -5,6 +5,7 @@ const NotFoundError = require("../errors/NotFoundError");
 const ConflictError = require("../errors/ConflictError");
 const { ensureActiveMember } = require("../lib/groupMembership");
 const { computeGroupBalances } = require("../lib/computeGroupBalances");
+const { writeAuditLog } = require("../lib/auditLog");
 
 const createGroupSchema = z.object({
   name: z.string().trim().min(1).max(100),
@@ -38,6 +39,16 @@ async function createGroup(body, actor) {
         groupId: group.id,
         userId: actor.userId,
       },
+    });
+
+    await writeAuditLog(tx, {
+      actorId:    actor.userId,
+      groupId:    group.id,
+      entityType: "Group",
+      entityId:   group.id,
+      action:     "CREATE",
+      before:     null,
+      after:      { id: group.id, name: group.name, description: group.description, createdById: group.createdById, createdAt: group.createdAt, updatedAt: group.updatedAt },
     });
 
     return group;
@@ -105,9 +116,25 @@ async function updateGroup(groupId, body, actor) {
 
   await ensureActiveMember(groupId, actor.userId);
 
-  const group = await prisma.group.update({
-    where: { id: groupId },
-    data: result.data,
+  const group = await prisma.$transaction(async (tx) => {
+    const before = await tx.group.findUnique({ where: { id: groupId } });
+
+    const updated = await tx.group.update({
+      where: { id: groupId },
+      data: result.data,
+    });
+
+    await writeAuditLog(tx, {
+      actorId:    actor.userId,
+      groupId:    groupId,
+      entityType: "Group",
+      entityId:   groupId,
+      action:     "UPDATE",
+      before:     { id: before.id, name: before.name, description: before.description, createdById: before.createdById, createdAt: before.createdAt, updatedAt: before.updatedAt },
+      after:      { id: updated.id, name: updated.name, description: updated.description, createdById: updated.createdById, createdAt: updated.createdAt, updatedAt: updated.updatedAt },
+    });
+
+    return updated;
   });
 
   return {
@@ -135,8 +162,20 @@ async function addMember(groupId, body, actor) {
   });
   if (existing) throw new ConflictError("User is already a member");
 
-  await prisma.groupMember.create({
-    data: { groupId, userId: userToAdd.id },
+  await prisma.$transaction(async (tx) => {
+    const member = await tx.groupMember.create({
+      data: { groupId, userId: userToAdd.id },
+    });
+
+    await writeAuditLog(tx, {
+      actorId:    actor.userId,
+      groupId:    groupId,
+      entityType: "GroupMember",
+      entityId:   member.id,
+      action:     "CREATE",
+      before:     null,
+      after:      { id: member.id, groupId: member.groupId, userId: member.userId, removedAt: member.removedAt, createdAt: member.createdAt, updatedAt: member.updatedAt },
+    });
   });
 
   return {

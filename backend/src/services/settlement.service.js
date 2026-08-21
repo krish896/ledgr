@@ -3,6 +3,7 @@ const ValidationError = require("../errors/ValidationError");
 const prisma = require("../lib/prisma");
 const { ensureActiveMember } = require("../lib/groupMembership");
 const { computeGroupBalances } = require("../lib/computeGroupBalances");
+const { writeAuditLog } = require("../lib/auditLog");
 
 const createSettlementSchema = z.object({
   groupId: z.string(),
@@ -35,14 +36,37 @@ async function createSettlement(body, actor) {
   if (result.data.amount > balance.amount)
     throw new ValidationError("Settlement amount exceeds outstanding balance");
 
-  const settlement = await prisma.settlement.create({
-    data: {
-      groupId: result.data.groupId,
-      fromUserId: actor.userId,
-      toUserId: result.data.toUserId,
-      amount: BigInt(result.data.amount),
-      note: result.data.note,
-    },
+  const settlement = await prisma.$transaction(async (tx) => {
+    const settlement = await tx.settlement.create({
+      data: {
+        groupId: result.data.groupId,
+        fromUserId: actor.userId,
+        toUserId: result.data.toUserId,
+        amount: BigInt(result.data.amount),
+        note: result.data.note,
+      },
+    });
+
+    await writeAuditLog(tx, {
+      actorId:    actor.userId,
+      groupId:    settlement.groupId,
+      entityType: "Settlement",
+      entityId:   settlement.id,
+      action:     "CREATE",
+      before:     null,
+      after: {
+        id:          settlement.id,
+        groupId:     settlement.groupId,
+        fromUserId:  settlement.fromUserId,
+        toUserId:    settlement.toUserId,
+        amount:      settlement.amount,
+        note:        settlement.note,
+        createdAt:   settlement.createdAt,
+        updatedAt:   settlement.updatedAt,
+      },
+    });
+
+    return settlement;
   });
 
   return {
