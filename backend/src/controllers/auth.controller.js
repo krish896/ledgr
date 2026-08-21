@@ -43,4 +43,9 @@ async function me(req, res) {
   res.status(200).json({ user });
 }
 
-module.exports = { register, login, logout, me };
+async function updateMe(req, res) {
+  const user = await authService.updateMe(req.body, req.user);
+  res.status(200).json({ user });
+}
+
+module.exports = { register, login, logout, me, updateMe };

@@ -100,4 +100,33 @@ async function me(payload) {
   };
 }
 
-module.exports = { register, login, me };
+const updateMeSchema = z.object({
+  name:  z.string().trim().min(1).max(100).optional(),
+  upiId: z.string().trim().regex(
+    /^[a-zA-Z0-9._-]{2,256}@[a-zA-Z0-9.-]{2,64}$/,
+    "Invalid UPI ID"
+  ).nullable().optional(),
+});
+
+async function updateMe(body, actor) {
+  const result = updateMeSchema.safeParse(body);
+  if (!result.success) throw new ValidationError(result.error.issues[0].message);
+  if (Object.keys(result.data).length === 0) throw new ValidationError("At least one field must be provided");
+
+  const user = await prisma.user.update({
+    where: { id: actor.userId },
+    data:  result.data,
+  });
+
+  return {
+    id:               user.id,
+    email:            user.email,
+    name:             user.name,
+    upiId:            user.upiId,
+    profileCompleted: user.profileCompleted,
+    createdAt:        user.createdAt,
+    updatedAt:        user.updatedAt,
+  };
+}
+
+module.exports = { register, login, me, updateMe };
