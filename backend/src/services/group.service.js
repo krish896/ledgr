@@ -1,4 +1,5 @@
 const { z } = require("zod");
+const { Prisma } = require("@prisma/client");
 const prisma = require("../lib/prisma");
 const ValidationError = require("../errors/ValidationError");
 const NotFoundError = require("../errors/NotFoundError");
@@ -163,9 +164,17 @@ async function addMember(groupId, body, actor) {
   if (existing) throw new ConflictError("User is already a member");
 
   await prisma.$transaction(async (tx) => {
-    const member = await tx.groupMember.create({
-      data: { groupId, userId: userToAdd.id },
-    });
+    let member;
+    try {
+      member = await tx.groupMember.create({
+        data: { groupId, userId: userToAdd.id },
+      });
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+        throw new ConflictError("User is already a member");
+      }
+      throw e;
+    }
 
     await writeAuditLog(tx, {
       actorId:    actor.userId,
