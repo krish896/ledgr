@@ -26,7 +26,8 @@ async function addMember(req, res) {
 }
 
 async function getBalances(req, res) {
-  const result = await groupService.getBalances(req.params.groupId, req.user);
+  const simplified = req.query.simplified === "true";
+  const result = await groupService.getBalances(req.params.groupId, req.user, { simplified });
   res.status(200).json(result);
 }
 

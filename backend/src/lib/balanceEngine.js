@@ -48,4 +48,32 @@ function computeBalances({ expenses, settlements }) {
   });
 }
 
-module.exports = { computeBalances };
+function simplifyDebts(balances) {
+  const net = new Map();
+  for (const { fromUserId, toUserId, amount } of balances) {
+    net.set(fromUserId, (net.get(fromUserId) ?? 0n) - amount);
+    net.set(toUserId,   (net.get(toUserId)   ?? 0n) + amount);
+  }
+
+  const people = Array.from(net.entries()).map(([id, net]) => ({ id, net }));
+  const result = [];
+
+  while (true) {
+    let maxCreditor = null;
+    let maxDebtor   = null;
+    for (const p of people) {
+      if (p.net > 0n && (maxCreditor === null || p.net > maxCreditor.net)) maxCreditor = p;
+      if (p.net < 0n && (maxDebtor   === null || p.net < maxDebtor.net))   maxDebtor   = p;
+    }
+    if (!maxCreditor || !maxDebtor) break;
+
+    const payment = maxCreditor.net < -maxDebtor.net ? maxCreditor.net : -maxDebtor.net;
+    result.push({ fromUserId: maxDebtor.id, toUserId: maxCreditor.id, amount: payment });
+    maxCreditor.net -= payment;
+    maxDebtor.net   += payment;
+  }
+
+  return result;
+}
+
+module.exports = { computeBalances, simplifyDebts };

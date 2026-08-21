@@ -6,6 +6,7 @@ const NotFoundError = require("../errors/NotFoundError");
 const ConflictError = require("../errors/ConflictError");
 const { ensureActiveMember } = require("../lib/groupMembership");
 const { computeGroupBalances } = require("../lib/computeGroupBalances");
+const { simplifyDebts } = require("../lib/balanceEngine");
 const { writeAuditLog } = require("../lib/auditLog");
 
 const createGroupSchema = z.object({
@@ -196,16 +197,19 @@ async function addMember(groupId, body, actor) {
   };
 }
 
-async function getBalances(groupId, actor) {
+async function getBalances(groupId, actor, { simplified = false } = {}) {
   await ensureActiveMember(groupId, actor.userId);
 
-  const balances = await computeGroupBalances(groupId);
+  const raw = await computeGroupBalances(groupId);
+  const working = simplified ? simplifyDebts(raw) : raw;
 
-  const filteredBalances = balances.filter(
+  const filtered = working.filter(
     (b) => b.fromUserId === actor.userId || b.toUserId === actor.userId
   );
 
-  return { balances: filteredBalances };
+  return simplified
+    ? { balances: filtered, simplified: true }
+    : { balances: filtered };
 }
 
 module.exports = { createGroup, getGroups, getGroupById, updateGroup, addMember, getBalances };

@@ -1,4 +1,4 @@
-const { computeBalances } = require("../balanceEngine");
+const { computeBalances, simplifyDebts } = require("../balanceEngine");
 
 function findBalance(balances, fromUserId, toUserId) {
   return balances.find(
@@ -430,5 +430,96 @@ describe("computeBalances", () => {
 
       expect(result).toHaveLength(0);
     });
+  });
+});
+
+describe("simplifyDebts", () => {
+  test("empty balances returns empty array", () => {
+    expect(simplifyDebts([])).toEqual([]);
+  });
+
+  test("single debtor and creditor returns the same debt", () => {
+    const result = simplifyDebts([{ fromUserId: "bob", toUserId: "alice", amount: 10000n }]);
+
+    expect(result).toHaveLength(1);
+    const balance = findBalance(result, "bob", "alice");
+    expect(balance).toBeDefined();
+    expect(balance.amount).toBe(10000n);
+  });
+
+  test("A→B 100 B→C 100 chain simplifies to A→C 100", () => {
+    const raw = [
+      { fromUserId: "alice", toUserId: "bob",     amount: 10000n },
+      { fromUserId: "bob",   toUserId: "charlie",  amount: 10000n },
+    ];
+
+    const result = simplifyDebts(raw);
+
+    expect(result).toHaveLength(1);
+    const balance = findBalance(result, "alice", "charlie");
+    expect(balance).toBeDefined();
+    expect(balance.amount).toBe(10000n);
+    expect(findBalance(result, "alice", "bob")).toBeUndefined();
+    expect(findBalance(result, "bob", "charlie")).toBeUndefined();
+  });
+
+  test("three-person cycle A→B B→C C→A all equal simplifies to empty", () => {
+    const raw = [
+      { fromUserId: "alice",   toUserId: "bob",     amount: 10000n },
+      { fromUserId: "bob",     toUserId: "charlie",  amount: 10000n },
+      { fromUserId: "charlie", toUserId: "alice",    amount: 10000n },
+    ];
+
+    const result = simplifyDebts(raw);
+
+    expect(result).toHaveLength(0);
+  });
+
+  test("multiple debtors and creditors minimizes transaction count", () => {
+    // alice is owed 500, bob is owed 100; charlie owes 300, diana owes 300
+    const raw = [
+      { fromUserId: "charlie", toUserId: "alice", amount: 30000n },
+      { fromUserId: "diana",   toUserId: "alice", amount: 20000n },
+      { fromUserId: "diana",   toUserId: "bob",   amount: 10000n },
+    ];
+
+    const result = simplifyDebts(raw);
+
+    // net: alice +50000, bob +10000, charlie -30000, diana -30000
+    const totalOwed = result.reduce((s, b) => s + b.amount, 0n);
+    expect(totalOwed).toBe(60000n);
+
+    // every payment goes to a creditor (alice or bob)
+    for (const b of result) {
+      expect(["alice", "bob"]).toContain(b.toUserId);
+      expect(["charlie", "diana"]).toContain(b.fromUserId);
+    }
+
+    expect(result.length).toBeLessThanOrEqual(3);
+  });
+
+  test("BigInt amounts remain exact throughout simplification", () => {
+    const raw = [
+      { fromUserId: "alice", toUserId: "bob",     amount: 999999999999n },
+      { fromUserId: "bob",   toUserId: "charlie",  amount: 999999999999n },
+    ];
+
+    const result = simplifyDebts(raw);
+
+    expect(result).toHaveLength(1);
+    const balance = findBalance(result, "alice", "charlie");
+    expect(balance).toBeDefined();
+    expect(balance.amount).toBe(999999999999n);
+  });
+
+  test("does not modify the input array", () => {
+    const raw = [
+      { fromUserId: "alice", toUserId: "bob", amount: 10000n },
+    ];
+    const snapshot = [...raw];
+
+    simplifyDebts(raw);
+
+    expect(raw).toEqual(snapshot);
   });
 });
