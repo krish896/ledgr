@@ -6,28 +6,30 @@ const { ensureActiveMember } = require("../lib/groupMembership");
 const { writeAuditLog } = require("../lib/auditLog");
 
 const equalExpenseSchema = z.object({
-  groupId:      z.string(),
-  payerId:      z.string(),
-  amount:       z.number().int().positive(),
-  description:  z.string().trim().min(1).max(500),
-  occurredAt:   z.coerce.date(),
-  splitType:    z.literal("EQUAL"),
-  participants: z.array(z.string()).min(1),
+  groupId:         z.string(),
+  payerId:         z.string(),
+  amount:          z.number().int().positive(),
+  description:     z.string().trim().min(1).max(500),
+  occurredAt:      z.coerce.date(),
+  splitType:       z.literal("EQUAL"),
+  participants:    z.array(z.string()).min(1),
+  receiptImageUrl: z.string().trim().max(2048).optional(),
 });
 
 const exactExpenseSchema = z.object({
-  groupId:     z.string(),
-  payerId:     z.string(),
-  amount:      z.number().int().positive(),
-  description: z.string().trim().min(1).max(500),
-  occurredAt:  z.coerce.date(),
-  splitType:   z.literal("EXACT"),
+  groupId:         z.string(),
+  payerId:         z.string(),
+  amount:          z.number().int().positive(),
+  description:     z.string().trim().min(1).max(500),
+  occurredAt:      z.coerce.date(),
+  splitType:       z.literal("EXACT"),
   splits: z.array(
     z.object({
       userId: z.string(),
       amount: z.number().int().positive(),
     })
   ).min(1),
+  receiptImageUrl: z.string().trim().max(2048).optional(),
 });
 
 const createExpenseSchema = z.discriminatedUnion("splitType", [
@@ -84,10 +86,11 @@ async function createExpense(body, actor) {
       data: {
         groupId,
         payerId,
-        amount: BigInt(result.data.amount),
-        description: result.data.description,
+        amount:          BigInt(result.data.amount),
+        description:     result.data.description,
         splitType,
-        occurredAt: result.data.occurredAt,
+        occurredAt:      result.data.occurredAt,
+        receiptImageUrl: result.data.receiptImageUrl ?? null,
       },
     });
 
@@ -107,16 +110,17 @@ async function createExpense(body, actor) {
       action:     "CREATE",
       before:     null,
       after: {
-        id:          expense.id,
-        groupId:     expense.groupId,
-        payerId:     expense.payerId,
-        amount:      expense.amount,
-        description: expense.description,
-        splitType:   expense.splitType,
-        occurredAt:  expense.occurredAt,
-        createdAt:   expense.createdAt,
-        updatedAt:   expense.updatedAt,
-        splits:      normalizedSplits.map((s) => ({ userId: s.userId, amount: BigInt(s.amount) })),
+        id:              expense.id,
+        groupId:         expense.groupId,
+        payerId:         expense.payerId,
+        amount:          expense.amount,
+        description:     expense.description,
+        splitType:       expense.splitType,
+        occurredAt:      expense.occurredAt,
+        receiptImageUrl: expense.receiptImageUrl,
+        createdAt:       expense.createdAt,
+        updatedAt:       expense.updatedAt,
+        splits:          normalizedSplits.map((s) => ({ userId: s.userId, amount: BigInt(s.amount) })),
       },
     });
 

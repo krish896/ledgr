@@ -83,9 +83,10 @@ model Expense {
   amount      BigInt
   description String
   splitType   SplitType
-  occurredAt  DateTime
-  deletedAt   DateTime?
-  createdAt   DateTime  @default(now())
+  occurredAt       DateTime
+  deletedAt        DateTime?
+  receiptImageUrl  String?
+  createdAt        DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
   group  Group          @relation(fields: [groupId], references: [id], onDelete: Restrict)
