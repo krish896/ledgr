@@ -9,8 +9,9 @@ const NotFoundError = require("../errors/NotFoundError");
 const ValidationError = require("../errors/ValidationError");
 
 const registerSchema = z.object({
-  email: z.string().email(),
+  email:    z.string().email(),
   password: z.string().min(8),
+  name:     z.string().trim().min(1).max(100).optional(),
 });
 
 async function register(body) {
@@ -26,7 +27,7 @@ async function register(body) {
     data: {
       email: result.data.email,
       passwordHash,
-      name: null,
+      name: result.data.name ?? null,
       upiId: null,
       profileCompleted: false,
     },
