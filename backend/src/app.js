@@ -10,6 +10,10 @@ const { errorHandler } = require("./middleware/error.middleware");
 
 const app = express();
 
+app.set('json replacer', (key, value) =>
+  typeof value === 'bigint' ? value.toString() : value
+);
+
 // Middleware
 app.use(cors());
 app.use(express.json());

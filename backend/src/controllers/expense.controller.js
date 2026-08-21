@@ -6,12 +6,18 @@ async function createExpense(req, res) {
 }
 
 async function getExpenseById(req, res) {
-  const result = await expenseService.getExpenseById(req.params.expenseId, req.user);
+  const result = await expenseService.getExpenseById(
+    req.params.expenseId,
+    req.user,
+  );
   res.status(200).json(result);
 }
 
 async function deleteExpense(req, res) {
-  const result = await expenseService.deleteExpense(req.params.expenseId, req.user);
+  const result = await expenseService.deleteExpense(
+    req.params.expenseId,
+    req.user,
+  );
   res.status(200).json(result);
 }
 
