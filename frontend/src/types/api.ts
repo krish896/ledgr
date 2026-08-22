@@ -107,6 +107,7 @@ export interface ExpenseSummary {
   description: string
   splitType: SplitType
   occurredAt: string
+  receiptImageUrl: string | null
   createdAt: string
   updatedAt: string
 }

@@ -136,6 +136,7 @@ async function createExpense(body, actor) {
       description: expense.description,
       splitType: expense.splitType,
       occurredAt: expense.occurredAt,
+      receiptImageUrl: expense.receiptImageUrl,
       createdAt: expense.createdAt,
       updatedAt: expense.updatedAt,
     },
@@ -166,6 +167,7 @@ async function getExpenseById(expenseId, actor) {
       description: expense.description,
       splitType: expense.splitType,
       occurredAt: expense.occurredAt,
+      receiptImageUrl: expense.receiptImageUrl,
       createdAt: expense.createdAt,
       updatedAt: expense.updatedAt,
       participants: expense.splits.map((split) => ({
