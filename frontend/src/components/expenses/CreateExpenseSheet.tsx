@@ -228,7 +228,10 @@ export default function CreateExpenseSheet({ groupId, open, onOpenChange, onCrea
               {/* Paid by */}
               <div className="space-y-1.5">
                 <Label>Paid by</Label>
-                <Select onValueChange={(v) => setValue('payerId', v, { shouldValidate: true })}>
+                <Select
+                  value={watch('payerId') ?? ''}
+                  onValueChange={(v) => setValue('payerId', v, { shouldValidate: true })}
+                >
                   <SelectTrigger aria-invalid={!!errors.payerId}>
                     <SelectValue placeholder="Who paid?" />
                   </SelectTrigger>
