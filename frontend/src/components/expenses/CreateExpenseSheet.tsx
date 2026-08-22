@@ -233,7 +233,11 @@ export default function CreateExpenseSheet({ groupId, open, onOpenChange, onCrea
                   onValueChange={(v) => setValue('payerId', v, { shouldValidate: true })}
                 >
                   <SelectTrigger aria-invalid={!!errors.payerId}>
-                    <SelectValue placeholder="Who paid?" />
+                    <SelectValue placeholder="Who paid?">
+                      {members.find(m => m.id === watch('payerId'))
+                        ? getMemberName(members.find(m => m.id === watch('payerId'))!)
+                        : undefined}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {members.map(m => (
