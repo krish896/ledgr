@@ -51,6 +51,10 @@
     /* Off-white secondary surface for cards / panels */
     --surface: 210 20% 98%;
     --surface-foreground: 222.2 47.4% 11.2%;
+
+    /* ── Shell layout tokens ─────────────────────────── */
+    --header-height: 60px;
+    --bottom-nav-height: 60px;
   }
 
   * {
@@ -58,9 +62,27 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
     font-feature-settings: "rlig" 1, "calt" 1;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+@layer utilities {
+  /* Tabular numerals for all monetary values */
+  .text-money {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+    @apply font-medium;
+  }
+
+  /* Semantic financial state colors */
+  .text-positive {
+    color: hsl(var(--success));
+  }
+
+  .text-debit {
+    color: hsl(var(--debit));
   }
 }
