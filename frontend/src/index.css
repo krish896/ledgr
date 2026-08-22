@@ -1,3 +1,66 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    /* ── Slate base (shadcn) ─────────────────────────── */
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+
+    /* #305EFF → hsl(225 100% 59%) */
+    --primary: 225 100% 59%;
+    --primary-foreground: 210 40% 98%;
+
+    /* Pale blue-gray secondary surface */
+    --secondary: 214 32% 91%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 225 100% 59%;
+
+    /* ~10px radius */
+    --radius: 0.625rem;
+
+    /* ── Ledgr semantic tokens ───────────────────────── */
+
+    /* Teal-green: positive balances / credit / settled */
+    --success: 162 72% 37%;
+    --success-foreground: 0 0% 100%;
+
+    /* Red: negative balances / debit / owed */
+    --debit: 0 72% 51%;
+    --debit-foreground: 0 0% 100%;
+
+    /* Off-white secondary surface for cards / panels */
+    --surface: 210 20% 98%;
+    --surface-foreground: 222.2 47.4% 11.2%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
