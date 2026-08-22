@@ -1,8 +1,10 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 
+import RootGuard from '@/routes/RootGuard'
 import AppLayout from '@/layouts/AppLayout'
 import AuthLayout from '@/layouts/AuthLayout'
 
+import OnboardingPage from '@/pages/OnboardingPage'
 import LoginPage from '@/pages/auth/LoginPage'
 import RegisterPage from '@/pages/auth/RegisterPage'
 import DashboardPage from '@/pages/DashboardPage'
@@ -16,37 +18,38 @@ import HistoryPage from '@/pages/HistoryPage'
 import ProfilePage from '@/pages/ProfilePage'
 
 const router = createBrowserRouter([
-  // Redirect root
-  { index: true, element: <Navigate to="/dashboard" replace /> },
-
-  // Auth routes (redirect to dashboard if already logged in)
   {
-    element: <AuthLayout />,
+    element: <RootGuard />,
     children: [
-      { path: '/auth/login', element: <LoginPage /> },
-      { path: '/auth/register', element: <RegisterPage /> },
-    ],
-  },
-
-  // Protected routes (redirect to /auth/login if not logged in)
-  {
-    element: <AppLayout />,
-    children: [
-      { path: '/dashboard', element: <DashboardPage /> },
-      { path: '/groups', element: <GroupsPage /> },
+      { path: '/onboarding', element: <OnboardingPage /> },
       {
-        path: '/groups/:groupId',
-        element: <GroupDetailPage />,
+        element: <AuthLayout />,
         children: [
-          { index: true, element: <Navigate to="expenses" replace /> },
-          { path: 'expenses', element: <GroupExpensesPage /> },
-          { path: 'balances', element: <GroupBalancesPage /> },
-          { path: 'activity', element: <GroupActivityPage /> },
-          { path: 'info', element: <GroupInfoPage /> },
+          { path: '/auth/login', element: <LoginPage /> },
+          { path: '/auth/register', element: <RegisterPage /> },
         ],
       },
-      { path: '/history', element: <HistoryPage /> },
-      { path: '/profile', element: <ProfilePage /> },
+      {
+        element: <AppLayout />,
+        children: [
+          { index: true, element: <Navigate to="/dashboard" replace /> },
+          { path: '/dashboard', element: <DashboardPage /> },
+          { path: '/groups', element: <GroupsPage /> },
+          {
+            path: '/groups/:groupId',
+            element: <GroupDetailPage />,
+            children: [
+              { index: true, element: <Navigate to="expenses" replace /> },
+              { path: 'expenses', element: <GroupExpensesPage /> },
+              { path: 'balances', element: <GroupBalancesPage /> },
+              { path: 'activity', element: <GroupActivityPage /> },
+              { path: 'info', element: <GroupInfoPage /> },
+            ],
+          },
+          { path: '/history', element: <HistoryPage /> },
+          { path: '/profile', element: <ProfilePage /> },
+        ],
+      },
     ],
   },
 ])

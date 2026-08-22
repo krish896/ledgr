@@ -59,6 +59,15 @@ export default {
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
       },
+      keyframes: {
+        loading: {
+          '0%': { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(400%)' },
+        },
+      },
+      animation: {
+        loading: 'loading 1.2s ease-in-out infinite',
+      },
     },
   },
   plugins: [require('tailwindcss-animate')],
