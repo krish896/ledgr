@@ -11,3 +11,8 @@ export function formatMoney(paise: string | number): string {
     maximumFractionDigits: 2,
   }).format(amount / 100)
 }
+
+// Converts user-entered rupees string ("500.00") to integer paise (50000)
+export function parseRupees(input: string): number {
+  return Math.round(parseFloat(input) * 100)
+}

@@ -21,4 +21,9 @@ async function deleteExpense(req, res) {
   res.status(200).json(result);
 }
 
-module.exports = { createExpense, getExpenseById, deleteExpense };
+async function getGroupExpenses(req, res) {
+  const result = await expenseService.getGroupExpenses(req.params.groupId, req.user);
+  res.status(200).json(result);
+}
+
+module.exports = { createExpense, getExpenseById, deleteExpense, getGroupExpenses };

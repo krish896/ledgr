@@ -134,6 +134,16 @@ export interface GetExpenseResponse {
   expense: ExpenseDetail
 }
 
+// GET /api/groups/:groupId/expenses — list items (payer + participantIds included)
+export interface GroupExpenseItem extends ExpenseSummary {
+  payer: { id: string; name: string | null; email: string }
+  participantIds: string[]
+}
+
+export interface GetGroupExpensesResponse {
+  expenses: GroupExpenseItem[]
+}
+
 export interface DeleteExpenseResponse {
   message: string
 }

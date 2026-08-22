@@ -230,4 +230,33 @@ async function deleteExpense(expenseId, actor) {
   return { message: "Expense deleted successfully" };
 }
 
-module.exports = { createExpense, getExpenseById, deleteExpense };
+async function getGroupExpenses(groupId, actor) {
+  await ensureActiveMember(groupId, actor.userId);
+
+  const rows = await prisma.expense.findMany({
+    where: { groupId, deletedAt: null },
+    orderBy: { occurredAt: 'desc' },
+    include: {
+      payer: { select: { id: true, name: true, email: true } },
+      splits: { select: { userId: true } },
+    },
+  });
+
+  return {
+    expenses: rows.map((e) => ({
+      id:              e.id,
+      groupId:         e.groupId,
+      payerId:         e.payerId,
+      amount:          e.amount,
+      description:     e.description,
+      splitType:       e.splitType,
+      occurredAt:      e.occurredAt,
+      receiptImageUrl: e.receiptImageUrl,
+      createdAt:       e.createdAt,
+      payer:           e.payer,
+      participantIds:  e.splits.map((s) => s.userId),
+    })),
+  };
+}
+
+module.exports = { createExpense, getExpenseById, deleteExpense, getGroupExpenses };

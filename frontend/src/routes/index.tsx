@@ -39,7 +39,7 @@ const router = createBrowserRouter([
             path: '/groups/:groupId',
             element: <GroupDetailPage />,
             children: [
-              { index: true, element: <Navigate to="expenses" replace /> },
+              { index: true, element: <Navigate to="balances" replace /> },
               { path: 'expenses', element: <GroupExpensesPage /> },
               { path: 'balances', element: <GroupBalancesPage /> },
               { path: 'activity', element: <GroupActivityPage /> },
